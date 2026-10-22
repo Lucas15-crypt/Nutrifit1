@@ -1,0 +1,11 @@
+{
+  "name": "NutriFit — Nutrition et courses",
+  "short_name": "NutriFit",
+  "description": "Suivi nutritionnel et comparaison des prix locaux",
+  "lang": "fr-FR",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101512",
+  "theme_color": "#101512"
+}
