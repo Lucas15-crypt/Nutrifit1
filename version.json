@@ -1,6 +1,6 @@
 {
-  "version": "1.0.5",
+  "version": "1.0.6",
   "name": "NutriFit",
   "released": "2026-10-22",
-  "notes": "Comparaison des prix par produit et par enseigne."
+  "notes": "Mise à jour automatique après modification de l'application."
 }
