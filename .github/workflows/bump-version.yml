@@ -1,0 +1,99 @@
+name: Mise à jour automatique de la version NutriFit
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'index.html'
+      - 'sw.js'
+      - 'manifest.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nutrifit-version-main
+  cancel-in-progress: false
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Incrémenter la version et synchroniser l'interface
+        id: version
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          import re
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          version_path = Path("version.json")
+          index_path = Path("index.html")
+
+          data = json.loads(version_path.read_text(encoding="utf-8"))
+          current = str(data.get("version", "1.0.0"))
+          match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", current)
+          if not match:
+              raise SystemExit(f"Format de version invalide : {current}")
+
+          major, minor, patch = map(int, match.groups())
+          new_version = f"{major}.{minor}.{patch + 1}"
+          today = datetime.now(timezone.utc).date().isoformat()
+
+          data["version"] = new_version
+          data["released"] = today
+          data["notes"] = "Mise à jour automatique après modification de l'application."
+          version_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+          html = index_path.read_text(encoding="utf-8")
+          html, pill_count = re.subn(
+              r"(NutriFit v)\d+\.\d+\.\d+",
+              lambda m: m.group(1) + new_version,
+              html,
+              count=1,
+          )
+          html, footer_count = re.subn(
+              r'(<span id="appVersion">)\d+\.\d+\.\d+(</span>)',
+              lambda m: m.group(1) + new_version + m.group(2),
+              html,
+              count=1,
+          )
+          html, constant_count = re.subn(
+              r"(const APP_VERSION = ')\d+\.\d+\.\d+(';)",
+              lambda m: m.group(1) + new_version + m.group(2),
+              html,
+              count=1,
+          )
+
+          if (pill_count, footer_count, constant_count) != (1, 1, 1):
+              raise SystemExit(
+                  "Impossible de synchroniser les trois affichages de version dans index.html "
+                  f"(badge={pill_count}, pied_de_page={footer_count}, constante={constant_count})."
+              )
+
+          index_path.write_text(html, encoding="utf-8")
+          print(f"Version : {current} -> {new_version}")
+          PY
+
+      - name: Enregistrer les changements
+        shell: bash
+        run: |
+          if git diff --quiet -- version.json index.html; then
+            echo "Aucune modification de version nécessaire."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add version.json index.html
+          git commit -m "chore: bump NutriFit version"
+          git push origin HEAD:main
