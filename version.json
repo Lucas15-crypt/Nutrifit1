@@ -1,5 +1,5 @@
 {
-  "version": "1.0.18",
+  "version": "1.0.17",
   "name": "NutriFit",
   "released": "2026-10-22",
   "notes": "Correction des unités et du calcul du coût des ingrédients dans le menu hebdomadaire."
