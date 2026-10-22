@@ -147,16 +147,30 @@ const weeklyRecipes={
  ]
 };
 function packageMeasure(product){
- const q=String(product?.qty||'').toLowerCase().replace(',', '.');
+ const q=String(product?.qty||'').toLowerCase().replace(',', '.').trim();
  let m;
- if((m=q.match(/(\\d+(?:\\.\\d+)?)\\s*(?:x|×)\\s*(\\d+(?:\\.\\d+)?)\\s*(kg|g|l|ml)\\b/))){const n=Number(m[1])*Number(m[2]);const u=m[3];return {unit:(u==='kg'||u==='g')?'g':'ml',amount:n*((u==='kg'||u==='l')?1000:1)}}
- if((m=q.match(/(\\d+(?:\\.\\d+)?)\\s*(kg|g|l|ml)\\b/))){const u=m[2];return {unit:(u==='kg'||u==='g')?'g':'ml',amount:Number(m[1])*((u==='kg'||u==='l')?1000:1)}}
- if((m=q.match(/(\\d+)\\s*(?:pi[eè]ces?|œufs|oeufs|tranches?)\\b/)))return {unit:'pièce',amount:Number(m[1])};
- if((m=q.match(/(\\d+)\\s*(?:bo[iî]tes?)\\b/)))return {unit:'paquet',amount:Number(m[1])};
- if(/\\b1\\s*(?:bo[iî]te|bo[iî]te|t[eê]te)\\b/.test(q))return {unit:'paquet',amount:1};
+ // Multipacks such as "4 x 125 g" and "2 steaks / 250 g".
+ if((m=q.match(/(\d+(?:\.\d+)?)\s*(?:x|×)\s*(\d+(?:\.\d+)?)\s*(kg|g|l|ml)\b/))){
+  const u=m[3],scale=(u==='kg'||u==='l')?1000:1;
+  return {unit:(u==='kg'||u==='g')?'g':'ml',amount:Number(m[1])*Number(m[2])*scale};
+ }
+ if((m=q.match(/(?:\/\s*)?(\d+(?:\.\d+)?)\s*(kg|g|l|ml)\b/))){
+  const u=m[2],scale=(u==='kg'||u==='l')?1000:1;
+  return {unit:(u==='kg'||u==='g')?'g':'ml',amount:Number(m[1])*scale};
+ }
+ if((m=q.match(/(\d+)\s*(?:pi[eè]ces?|œufs|oeufs|tranches?)\b/)))return {unit:'pièce',amount:Number(m[1])};
+ if((m=q.match(/(\d+)\s*(?:bo[iî]tes?)\b/)))return {unit:'boîte',amount:Number(m[1])};
+ if(/\b1\s*(?:bo[iî]te|t[eê]te)\b/.test(q))return {unit:/t[eê]te/.test(q)?'tête':'boîte',amount:1};
+ if(/\b\d+\s*(?:steaks?|portions?)\b/.test(q)){
+  const n=Number((q.match(/(\d+)\s*(?:steaks?|portions?)/)||[])[1])||1;
+  return {unit:'portion',amount:n};
+ }
  return {unit:'paquet',amount:1};
 }
-const usualAmounts={oats:80,milk:250,banana:1,skyr:200,eggs:2,bread:100,chicken:150,rice:80,veg:150,lentils:80,carrot:100,tuna:1,pasta:80,chickpeas:80,potato:250,sardines:1,beans:120,cheese:20};
+const usualAmounts={
+ oats:80,milk:250,banana:120,skyr:200,eggs:2,bread:100,chicken:150,rice:80,veg:150,
+ lentils:80,carrot:100,tuna:1,pasta:80,chickpeas:80,potato:250,sardines:1,beans:1,cheese:20
+};
 function ingredientAmount(recipe,p){
  const measure=packageMeasure(p);
  if(recipe.amounts&&Number(recipe.amounts[p.id])>0)return Number(recipe.amounts[p.id]);
@@ -164,7 +178,18 @@ function ingredientAmount(recipe,p){
  const divisor=Math.max(1,Number(recipe.portions?.[p.id])||5);
  return Math.max(0.1,measure.amount/divisor);
 }
-function recipeCost(recipe,idx){const catalog=allProducts();return (recipe.ingredients||[]).reduce((sum,id)=>{const p=catalog.find(x=>x.id===id);if(!p)return sum;const price=Number(p.prices?.[idx]??p.price);const pack=packageMeasure(p);const amount=ingredientAmount(recipe,p);return sum+(Number.isFinite(price)&&price>0?price*amount/Math.max(0.001,pack.amount):0)},0)}
+function recipeCost(recipe,idx){
+ const catalog=allProducts();
+ return (recipe.ingredients||[]).reduce((sum,id)=>{
+  const p=catalog.find(x=>x.id===id);if(!p)return sum;
+  const price=Number(p.prices?.[idx]??p.price);
+  const pack=packageMeasure(p);
+  const amount=ingredientAmount(recipe,p);
+  // Cost prorating is valid only when the recipe quantity and pack quantity use the same unit.
+  if(!Number.isFinite(price)||price<=0||!Number.isFinite(pack.amount)||pack.amount<=0)return sum;
+  return sum+price*amount/pack.amount;
+ },0);
+}
 function recipeScore(recipe,idx,goal){const cost=recipeCost(recipe,idx);if(goal==='muscle')return cost-(recipe.protein/1000);if(goal==='lose')return cost+(recipe.calories/10000);return cost}
 function generateWeeklyPlan(){
  const budget=Math.max(5,Math.min(500,Number(document.getElementById('planBudget').value)||40));
@@ -222,7 +247,7 @@ function renderWeeklyPlan(){
  const daysHtml=plan.days.map((day,di)=>'<article class="product" style="margin:8px 0"><strong>'+esc(day.day)+'</strong>'+day.meals.map((m,mi)=>{
   const ingredients=m.ingredients||[];
   const options=catalog.map(p=>{const measure=packageMeasure(p);const amount=ingredientAmount(m,p);return '<label class="meal" style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-edit-ingredient="'+esc(p.id)+'" '+(ingredients.includes(p.id)?'checked':'')+'><span style="flex:1">'+esc(p.name)+' <span class="muted small">(paquet : '+esc(p.qty||'format non précisé')+')</span><br><span class="small muted">Quantité utilisée : <input data-edit-amount="'+esc(p.id)+'" type="number" min="0.1" max="100000" step="any" value="'+Number(amount.toFixed(2))+'" style="width:88px;padding:5px;border-radius:6px"> '+esc(measure.unit)+'</span></span></label>'}).join('');
-  return '<div class="meal" style="display:block;margin-top:10px"><div class="row" style="align-items:center"><strong>'+esc(m.name)+'</strong><span class="green small">'+euro(recipeCost(m,stores.indexOf(plan.store)))+'</span></div><div class="muted small">'+(Number(m.protein)||0)+' g protéines · '+(Number(m.calories)||0)+' kcal estimées</div><details style="margin-top:8px"><summary class="btn secondary" style="display:inline-block;cursor:pointer">✏️ Modifier ce repas</summary><div class="panel" data-meal-editor="'+di+'-'+mi+'" style="margin-top:10px"><div class="field-wrap"><label>Nom du repas</label><input class="field" data-edit-name value="'+esc(m.name)+'" maxlength="100"></div><div class="fields" style="margin-top:8px"><div class="field-wrap"><label>Protéines (g)</label><input class="field" data-edit-protein type="number" min="0" max="300" value="'+(Number(m.protein)||0)+'"></div><div class="field-wrap"><label>Calories (kcal)</label><input class="field" data-edit-calories type="number" min="0" max="3000" value="'+(Number(m.calories)||0)+'"></div></div><p class="muted small">Coche les ingrédients puis indique la quantité réellement utilisée. NutriFit calcule le coût au prorata du format du paquet (ex. 80 g utilisés sur un paquet de 500 g). Pour les formats non reconnus, la quantité est exprimée en paquets.</p><div style="max-height:260px;overflow:auto">'+options+'</div><button type="button" class="btn" data-save-plan-meal data-day="'+di+'" data-meal="'+mi+'" style="width:100%;margin-top:10px">Enregistrer les modifications</button></div></details></div>';
+  return '<div class="meal" style="display:block;margin-top:10px"><div class="row" style="align-items:center"><strong>'+esc(m.name)+'</strong><span class="green small">'+euro(recipeCost(m,stores.indexOf(plan.store)))+'</span></div><div class="muted small">'+(Number(m.protein)||0)+' g protéines · '+(Number(m.calories)||0)+' kcal estimées</div><details style="margin-top:8px"><summary class="btn secondary" style="display:inline-block;cursor:pointer">✏️ Modifier ce repas</summary><div class="panel" data-meal-editor="'+di+'-'+mi+'" style="margin-top:10px"><div class="field-wrap"><label>Nom du repas</label><input class="field" data-edit-name value="'+esc(m.name)+'" maxlength="100"></div><div class="fields" style="margin-top:8px"><div class="field-wrap"><label>Protéines (g)</label><input class="field" data-edit-protein type="number" min="0" max="300" value="'+(Number(m.protein)||0)+'"></div><div class="field-wrap"><label>Calories (kcal)</label><input class="field" data-edit-calories type="number" min="0" max="3000" value="'+(Number(m.calories)||0)+'"></div></div><p class="muted small">Coche les ingrédients puis indique la quantité réellement utilisée. NutriFit calcule le coût au prorata du format du paquet (ex. 80 g utilisés sur un paquet de 500 g, ou 1 boîte si le produit est vendu à la boîte). Pour les formats non reconnus, la quantité est exprimée en paquets.</p><div style="max-height:260px;overflow:auto">'+options+'</div><button type="button" class="btn" data-save-plan-meal data-day="'+di+'" data-meal="'+mi+'" style="width:100%;margin-top:10px">Enregistrer les modifications</button></div></details></div>';
  }).join('')+'</article>').join('');
  target.innerHTML='<div class="grid"><div class="panel"><div class="muted small">Coût estimé des quantités</div><div class="stat green">'+euro(plan.total)+'</div><div class="small muted">Budget : '+euro(plan.budget)+' / semaine</div></div><div class="panel"><div class="muted small">Repères estimés sur 7 jours</div><div><strong>'+Math.round(plan.protein/7)+' g</strong> protéines/jour</div><div><strong>'+Math.round(plan.calories/7)+' kcal</strong> / jour</div><div class="small muted">'+esc(goalLabel)+'</div></div></div><p class="small '+(plan.total>plan.budget?'status':'green')+'">'+(plan.total>plan.budget?'Le coût estimé dépasse le budget de '+euro(plan.total-plan.budget)+'. Tu peux modifier les repas ou augmenter le budget.':'Le coût estimé des portions respecte ton budget, avec '+euro(plan.budget-plan.total)+' de marge.')+'</p>'+daysHtml+'<p class="muted small">Les prix sont des estimations du catalogue NutriFit et peuvent différer des prix en rayon. Le coût est calculé au prorata des quantités saisies et du format de chaque paquet ; il peut rester approximatif si le format du produit n’est pas reconnu. Les calories et protéines sont indicatives ; tu peux les corriger dans « Modifier ce repas ».</p><button class="btn" id="planToBasket" style="width:100%">Ajouter les ingrédients du menu au panier Courses</button><button class="btn secondary" data-reset-plan-meal style="width:100%;margin-top:8px">Régénérer le menu</button>';
  document.getElementById('planToBasket').addEventListener('click',()=>{state.basket=[...new Set([...state.basket,...plan.ingredients])];persist();render();showView('shopping')});
