@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nutrifit-static-v6';
+const CACHE_NAME = 'nutrifit-static-v7';
 const APP_FILES = ['./', './index.html', './manifest.json', './version.json'];
 
 self.addEventListener('message', event => {
