@@ -1,6 +1,6 @@
 {
-  "version": "1.0.16",
+  "version": "1.0.17",
   "name": "NutriFit",
   "released": "2026-10-22",
-  "notes": "Correction des unités (g, ml, pièces, boîtes) et du calcul du coût des ingrédients."
+  "notes": "Mise à jour automatique après modification de l'application."
 }
