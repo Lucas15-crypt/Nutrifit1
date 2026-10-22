@@ -167,7 +167,7 @@ document.getElementById('addFood').addEventListener('click',()=>{const name=docu
 render();
 if(state.suggestedApplied){const appliedButton=document.getElementById('applySuggested');appliedButton.classList.remove('hidden');appliedButton.classList.add('applied');appliedButton.textContent='✓ Objectifs appliqués';appliedButton.disabled=true;appliedButton.style.setProperty('background-color','#707a72','important');appliedButton.style.setProperty('color','#f4f6f4','important')}
 // Version de l'application : à augmenter lors de chaque publication.
-const APP_VERSION = '1.0.3';
+const APP_VERSION = '1.0.4';
 document.getElementById('appVersion').textContent = APP_VERSION;
 
 const updateButton = document.getElementById('checkUpdates');
