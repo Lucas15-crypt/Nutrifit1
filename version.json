@@ -1,6 +1,6 @@
 {
-  "version": "1.0.12",
+  "version": "1.0.13",
   "name": "NutriFit",
   "released": "2026-10-22",
-  "notes": "Mise à jour automatique après modification de l'application."
+  "notes": "Les repas du menu hebdomadaire sont modifiables."
 }
