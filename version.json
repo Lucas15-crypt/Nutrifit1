@@ -1,6 +1,6 @@
 {
-  "version": "1.0.15",
+  "version": "1.0.16",
   "name": "NutriFit",
   "released": "2026-10-22",
-  "notes": "Calcul du coût des menus selon les quantités d’ingrédients utilisées."
+  "notes": "Mise à jour automatique après modification de l'application."
 }
