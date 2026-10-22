@@ -2,5 +2,5 @@
   "version": "1.0.11",
   "name": "NutriFit",
   "released": "2026-10-22",
-  "notes": "Mise à jour automatique après modification de l'application."
+  "notes": "Ajout du générateur de menus hebdomadaires selon le budget."
 }
